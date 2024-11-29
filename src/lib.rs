@@ -1,4 +1,7 @@
-#[derive(Default)]
+use derive_builder::Builder;
+
+#[derive(Default, Builder)]
+#[builder(default)]
 struct Damage {
     slash: f32,
     impact: f32,
@@ -59,25 +62,22 @@ impl Damage {
     }
 }
 
-#[derive(Default)]
-struct DamageBonus {
-    slash: f32,
-    impact: f32,
-    puncture: f32,
-    cold: f32,
-    electricity: f32,
-    fire: f32,
-    toxin: f32,
-    blast: f32,
-    corrosive: f32,
-    gas: f32,
-    magnetic: f32,
-    radiation: f32,
-    viral: f32,
+struct Weapon {
+    damage: Damage,
+    multishot: f32,
+    crit_chance: f32,
+    crit_multi: f32,
+    status: f32,
+    fire_rate: f32,
 }
 
-fn main() {
-    println!("Hello, world!");
+impl Weapon {
+    fn dps(&self) -> f32 {
+        let total_dmg = self.damage.scaled().total();
+        let avg_dmg_multi = 1.0 + self.crit_chance * (self.crit_multi - 1.0);
+        let avg_dmg = total_dmg * avg_dmg_multi;
+        avg_dmg * (1.0 + self.multishot) * self.fire_rate
+    }
 }
 
 #[cfg(test)]
@@ -97,5 +97,19 @@ mod tests {
         assert_ulps_eq!(scaled_damage.slash, 37.5);
         assert_ulps_eq!(scaled_damage.impact, 31.25);
         assert_ulps_eq!(scaled_damage.puncture, 31.25);
+    }
+
+    #[test]
+    fn weapon_dps_calculations() {
+        let weapon = Weapon {
+            damage: DamageBuilder::default().puncture(10.0).build().unwrap(),
+            multishot: 0.0,
+            crit_chance: 1.5,
+            crit_multi: 2.0,
+            status: 0.0,
+            fire_rate: 1.0,
+        };
+
+        assert_ulps_eq!(weapon.dps(), 25.0);
     }
 }
