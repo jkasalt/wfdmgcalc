@@ -19,7 +19,7 @@ struct Damage {
 }
 
 impl Damage {
-    fn total_damage(&self) -> f32 {
+    pub fn total(&self) -> f32 {
         self.slash
             + self.impact
             + self.puncture
@@ -36,14 +36,14 @@ impl Damage {
     }
 
     fn scale(&self) -> f32 {
-        self.total_damage() / 16.0
+        self.total() / 16.0
     }
 
     fn round(&self, damage: f32) -> f32 {
         f32::round(damage / self.scale()) * self.scale()
     }
 
-    pub fn scaled_damage(&self) -> Self {
+    pub fn scaled(&self) -> Self {
         Self {
             slash: self.round(self.slash),
             impact: self.round(self.impact),
@@ -93,7 +93,7 @@ mod tests {
             puncture: 30.0,
             ..Default::default()
         };
-        let scaled_damage = damage.scaled_damage();
+        let scaled_damage = damage.scaled();
         assert_ulps_eq!(scaled_damage.slash, 37.5);
         assert_ulps_eq!(scaled_damage.impact, 31.25);
         assert_ulps_eq!(scaled_damage.puncture, 31.25);
