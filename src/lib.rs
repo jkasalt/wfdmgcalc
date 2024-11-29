@@ -1,38 +1,66 @@
+use std::{
+    collections::HashMap,
+    ops::{Deref, Index},
+};
+
 use derive_builder::Builder;
 
-#[derive(Default, Builder)]
-#[builder(default)]
-struct Damage {
-    slash: f32,
-    impact: f32,
-    puncture: f32,
-    cold: f32,
-    electricity: f32,
-    fire: f32,
-    toxin: f32,
-    blast: f32,
-    corrosive: f32,
-    gas: f32,
-    magnetic: f32,
-    radiation: f32,
-    viral: f32,
+#[derive(Eq, PartialEq, Hash, Clone, Copy)]
+enum DamageType {
+    Impact,
+    Puncture,
+    Slash,
+    Cold,
+    Electricity,
+    Heat,
+    Toxin,
+    Blast,
+    Corrosive,
+    Gas,
+    Magnetic,
+    Radiation,
+    Viral,
 }
 
-impl Damage {
+#[derive(Default)]
+struct DamageSet {
+    inner: HashMap<DamageType, f32>,
+}
+
+impl Deref for DamageSet {
+    type Target = HashMap<DamageType, f32>;
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl Index<DamageType> for DamageSet {
+    type Output = f32;
+    fn index(&self, index: DamageType) -> &Self::Output {
+        &self.inner[&index]
+    }
+}
+
+impl<A> FromIterator<A> for DamageSet
+where
+    HashMap<DamageType, f32>: FromIterator<A>,
+{
+    fn from_iter<T: IntoIterator<Item = A>>(iter: T) -> Self {
+        Self {
+            inner: iter.into_iter().collect(),
+        }
+    }
+}
+
+impl From<(DamageType, f32)> for DamageSet {
+    fn from(value: (DamageType, f32)) -> Self {
+        Self::from_iter(std::iter::once(value))
+    }
+}
+
+impl DamageSet {
     pub fn total(&self) -> f32 {
-        self.slash
-            + self.impact
-            + self.puncture
-            + self.cold
-            + self.electricity
-            + self.fire
-            + self.toxin
-            + self.blast
-            + self.corrosive
-            + self.gas
-            + self.magnetic
-            + self.radiation
-            + self.viral
+        self.inner.values().sum()
     }
 
     fn scale(&self) -> f32 {
@@ -45,30 +73,35 @@ impl Damage {
 
     pub fn scaled(&self) -> Self {
         Self {
-            slash: self.round(self.slash),
-            impact: self.round(self.impact),
-            puncture: self.round(self.puncture),
-            cold: self.round(self.cold),
-            electricity: self.round(self.electricity),
-            fire: self.round(self.fire),
-            toxin: self.round(self.toxin),
-            blast: self.round(self.blast),
-            corrosive: self.round(self.corrosive),
-            gas: self.round(self.gas),
-            magnetic: self.round(self.magnetic),
-            radiation: self.round(self.radiation),
-            viral: self.round(self.viral),
+            inner: self
+                .inner
+                .iter()
+                .map(|(k, v)| (*k, self.round(*v)))
+                .collect(),
         }
     }
 }
 
 struct Weapon {
-    damage: Damage,
+    damage: DamageSet,
     multishot: f32,
     crit_chance: f32,
     crit_multi: f32,
-    status: f32,
+    status_chance: f32,
     fire_rate: f32,
+}
+
+impl Default for Weapon {
+    fn default() -> Self {
+        Self {
+            damage: DamageSet::default(),
+            multishot: 0.0,
+            crit_chance: 0.0,
+            crit_multi: 1.0,
+            status_chance: 0.0,
+            fire_rate: 1.0,
+        }
+    }
 }
 
 impl Weapon {
@@ -87,26 +120,27 @@ mod tests {
 
     #[test]
     fn correct_damage_scaling_calculations() {
-        let damage = Damage {
-            slash: 40.0,
-            impact: 30.0,
-            puncture: 30.0,
-            ..Default::default()
-        };
+        use DamageType as DT;
+        let damage = DamageSet::from_iter(vec![
+            (DT::Slash, 40.0),
+            (DT::Impact, 30.0),
+            (DT::Puncture, 30.0),
+        ]);
+
         let scaled_damage = damage.scaled();
-        assert_ulps_eq!(scaled_damage.slash, 37.5);
-        assert_ulps_eq!(scaled_damage.impact, 31.25);
-        assert_ulps_eq!(scaled_damage.puncture, 31.25);
+        assert_ulps_eq!(scaled_damage[DT::Slash], 37.5);
+        assert_ulps_eq!(scaled_damage[DT::Impact], 31.25);
+        assert_ulps_eq!(scaled_damage[DT::Puncture], 31.25);
     }
 
     #[test]
     fn weapon_dps_calculations() {
         let weapon = Weapon {
-            damage: DamageBuilder::default().puncture(10.0).build().unwrap(),
+            damage: DamageSet::from((DamageType::Puncture, 10.0)),
             multishot: 0.0,
             crit_chance: 1.5,
             crit_multi: 2.0,
-            status: 0.0,
+            status_chance: 0.0,
             fire_rate: 1.0,
         };
 
