@@ -27,13 +27,6 @@ struct DamageSet {
     inner: HashMap<DamageType, f32>,
 }
 
-impl Deref for DamageSet {
-    type Target = HashMap<DamageType, f32>;
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
-
 impl Index<DamageType> for DamageSet {
     type Output = f32;
     fn index(&self, index: DamageType) -> &Self::Output {
@@ -111,6 +104,14 @@ impl Weapon {
         let avg_dmg = total_dmg * avg_dmg_multi;
         avg_dmg * (1.0 + self.multishot) * self.fire_rate
     }
+
+    fn apply_bonus(&self, bonus: Bonus) -> Self {
+        todo!()
+    }
+}
+
+enum Bonus {
+    Cold(f32),
 }
 
 #[cfg(test)]
@@ -145,5 +146,20 @@ mod tests {
         };
 
         assert_ulps_eq!(weapon.dps(), 25.0);
+    }
+
+    #[test]
+    #[ignore]
+    fn weapon_dps_apply_elemental_bonus() {
+        let weapon = Weapon {
+            damage: DamageSet::from((DamageType::Puncture, 10.0)),
+            multishot: 0.0,
+            crit_chance: 1.5,
+            crit_multi: 2.0,
+            status_chance: 0.0,
+            fire_rate: 1.0,
+        }
+        .apply_bonus(Bonus::Cold(0.8));
+        assert_ulps_eq!(weapon.dps(), 18.0 * 2.5);
     }
 }
